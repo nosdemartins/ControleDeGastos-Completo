@@ -1,0 +1,511 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Controle de Gastos — Extrato</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink:#132019;
+    --ink-2:#1b2b22;
+    --paper:#f1ece0;
+    --paper-line:#d9cfb8;
+    --receita:#1f8a5f;
+    --receita-soft:#e3f1e9;
+    --despesa:#b23a48;
+    --despesa-soft:#f5e3e3;
+    --gold:#c9a227;
+    --text-soft:#5b6a61;
+    --radius:14px;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    background:var(--ink);
+    background-image:
+      radial-gradient(circle at 15% 0%, rgba(201,162,39,0.08), transparent 45%),
+      radial-gradient(circle at 85% 100%, rgba(31,138,95,0.10), transparent 40%);
+    color:var(--paper);
+    font-family:'Inter', sans-serif;
+    min-height:100vh;
+    padding:32px 20px 64px;
+  }
+  .wrap{max-width:1120px; margin:0 auto;}
+
+  /* Header */
+  header{
+    display:flex; justify-content:space-between; align-items:flex-end;
+    flex-wrap:wrap; gap:16px;
+    padding-bottom:24px; margin-bottom:28px;
+    border-bottom:1px solid rgba(241,236,224,0.15);
+  }
+  .brand-eyebrow{
+    font-family:'IBM Plex Mono', monospace;
+    font-size:11px; letter-spacing:0.18em; text-transform:uppercase;
+    color:var(--gold); margin:0 0 6px;
+  }
+  h1{
+    font-family:'Fraunces', serif; font-weight:600; font-size:32px;
+    margin:0; letter-spacing:-0.01em;
+  }
+  .saldo-box{ text-align:right; }
+  .saldo-label{
+    font-family:'IBM Plex Mono', monospace; font-size:11px;
+    letter-spacing:0.14em; text-transform:uppercase; color:var(--text-soft);
+    color:#a9b6ad; margin:0 0 4px;
+  }
+  .saldo-valor{
+    font-family:'Fraunces', serif; font-size:38px; font-weight:600;
+    font-variant-numeric:tabular-nums;
+  }
+  .saldo-valor.positivo{ color:var(--receita); }
+  .saldo-valor.negativo{ color:var(--despesa); }
+
+  /* Cards resumo */
+  .cards{ display:grid; grid-template-columns:repeat(3,1fr); gap:16px; margin-bottom:28px; }
+  .card{
+    background:var(--paper); color:var(--ink); border-radius:var(--radius);
+    padding:18px 20px; position:relative; overflow:hidden;
+  }
+  .card .rotulo{
+    font-family:'IBM Plex Mono', monospace; font-size:11px; letter-spacing:0.1em;
+    text-transform:uppercase; color:var(--text-soft); margin:0 0 8px;
+  }
+  .card .valor{
+    font-family:'Fraunces', serif; font-size:26px; font-weight:600;
+    font-variant-numeric:tabular-nums;
+  }
+  .card.receitas .valor{ color:var(--receita); }
+  .card.despesas .valor{ color:var(--despesa); }
+
+  /* Layout principal */
+  .grid{ display:grid; grid-template-columns:340px 1fr; gap:20px; align-items:start; }
+  @media (max-width:820px){ .grid{ grid-template-columns:1fr; } .cards{grid-template-columns:1fr;} }
+
+  .painel{
+    background:var(--paper); color:var(--ink); border-radius:var(--radius);
+    padding:20px;
+  }
+  .painel h2{
+    font-family:'Fraunces', serif; font-size:18px; margin:0 0 16px;
+    display:flex; align-items:center; gap:8px;
+  }
+  .painel h2 .num{
+    font-family:'IBM Plex Mono', monospace; font-size:11px; color:var(--text-soft);
+  }
+
+  /* Formulário */
+  label{
+    display:block; font-family:'IBM Plex Mono', monospace; font-size:10.5px;
+    letter-spacing:0.08em; text-transform:uppercase; color:var(--text-soft);
+    margin:12px 0 4px;
+  }
+  label:first-of-type{ margin-top:0; }
+  input, select{
+    width:100%; padding:9px 10px; border-radius:8px; border:1px solid var(--paper-line);
+    background:#fff; color:var(--ink); font-family:'Inter',sans-serif; font-size:14px;
+  }
+  input:focus, select:focus{ outline:2px solid var(--gold); outline-offset:1px; }
+  .tipo-toggle{ display:flex; gap:8px; margin-top:4px; }
+  .tipo-toggle button{
+    flex:1; padding:9px; border-radius:8px; border:1px solid var(--paper-line);
+    background:#fff; font-family:'IBM Plex Mono', monospace; font-size:12px;
+    cursor:pointer; transition:all .15s ease;
+  }
+  .tipo-toggle button.ativo[data-tipo="Receita"]{ background:var(--receita); border-color:var(--receita); color:#fff; }
+  .tipo-toggle button.ativo[data-tipo="Despesa"]{ background:var(--despesa); border-color:var(--despesa); color:#fff; }
+
+  .btn-principal{
+    width:100%; margin-top:16px; padding:11px; border:none; border-radius:8px;
+    background:var(--ink); color:var(--paper); font-family:'IBM Plex Mono', monospace;
+    font-size:13px; letter-spacing:0.04em; cursor:pointer; transition:background .15s ease;
+  }
+  .btn-principal:hover{ background:#264536; }
+  .btn-cancelar{
+    width:100%; margin-top:8px; padding:9px; border:1px solid var(--paper-line); border-radius:8px;
+    background:transparent; color:var(--text-soft); font-family:'IBM Plex Mono', monospace;
+    font-size:12px; cursor:pointer; display:none;
+  }
+  #erro-form{ color:var(--despesa); font-size:12.5px; margin-top:8px; display:none; }
+
+  /* Donut categorias */
+  .donut-wrap{ display:flex; align-items:center; gap:16px; margin-top:16px; }
+  .donut{ width:110px; height:110px; border-radius:50%; flex-shrink:0; }
+  .legenda{ font-family:'IBM Plex Mono', monospace; font-size:11.5px; }
+  .legenda li{ display:flex; justify-content:space-between; gap:10px; margin-bottom:6px; list-style:none; }
+  .legenda .pt{ display:inline-block; width:8px; height:8px; border-radius:2px; margin-right:6px; }
+  .legenda-cat{ color:var(--ink); }
+  .legenda-val{ color:var(--text-soft); }
+
+  /* Filtros chips */
+  .filtros{ display:flex; gap:8px; margin-bottom:14px; flex-wrap:wrap; }
+  .chip{
+    padding:6px 12px; border-radius:999px; border:1px solid var(--paper-line);
+    background:#fff; font-family:'IBM Plex Mono', monospace; font-size:11.5px;
+    cursor:pointer; color:var(--text-soft);
+  }
+  .chip.ativo{ background:var(--ink); color:var(--paper); border-color:var(--ink); }
+
+  /* Extrato / ledger */
+  .extrato{ border-left:2px solid var(--despesa); padding-left:16px; }
+  .lancamento{
+    display:grid; grid-template-columns:1fr auto auto; align-items:center; gap:6px 14px;
+    padding:12px 0; border-bottom:1px dashed var(--paper-line);
+  }
+  .lancamento:last-child{ border-bottom:none; }
+  .l-desc{ font-family:'Inter',sans-serif; font-weight:600; font-size:14px; }
+  .l-meta{
+    font-family:'IBM Plex Mono', monospace; font-size:11px; color:var(--text-soft);
+    grid-column:1; margin-top:2px;
+  }
+  .l-tag{
+    display:inline-block; background:var(--paper-line); color:var(--ink);
+    border-radius:5px; padding:1px 6px; margin-right:4px; font-size:10.5px;
+  }
+  .l-valor{
+    font-family:'IBM Plex Mono', monospace; font-weight:600; font-size:14.5px;
+    font-variant-numeric:tabular-nums; text-align:right;
+  }
+  .l-valor.receita{ color:var(--receita); }
+  .l-valor.despesa{ color:var(--despesa); }
+  .l-acoes{ display:flex; gap:6px; }
+  .l-acoes button{
+    border:none; background:transparent; cursor:pointer; font-size:14px;
+    color:var(--text-soft); padding:4px;
+  }
+  .l-acoes button:hover{ color:var(--ink); }
+  .vazio{ text-align:center; padding:30px 0; color:var(--text-soft); font-family:'IBM Plex Mono',monospace; font-size:12.5px; }
+
+  .config{
+    margin-top:22px; font-family:'IBM Plex Mono', monospace; font-size:11px; color:#8b9a90;
+    display:flex; align-items:center; gap:8px; flex-wrap:wrap;
+  }
+  .config input{ width:260px; background:rgba(255,255,255,0.06); border-color:rgba(241,236,224,0.2); color:var(--paper); }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <div>
+      <p class="brand-eyebrow">Livro-caixa pessoal</p>
+      <h1>Controle de Gastos</h1>
+    </div>
+    <div class="saldo-box">
+      <p class="saldo-label">Saldo atual</p>
+      <p class="saldo-valor" id="saldo-valor">R$ 0,00</p>
+    </div>
+  </header>
+
+  <div class="cards">
+    <div class="card receitas">
+      <p class="rotulo">Receitas</p>
+      <p class="valor" id="total-receitas">R$ 0,00</p>
+    </div>
+    <div class="card despesas">
+      <p class="rotulo">Despesas</p>
+      <p class="valor" id="total-despesas">R$ 0,00</p>
+    </div>
+    <div class="card">
+      <p class="rotulo">Lançamentos</p>
+      <p class="valor" id="total-lancamentos">0</p>
+    </div>
+  </div>
+
+  <div class="grid">
+    <!-- Coluna esquerda: formulário + categorias -->
+    <div>
+      <div class="painel" style="margin-bottom:20px;">
+        <h2 id="form-titulo">Novo lançamento</h2>
+        <form id="form-gasto">
+          <label for="descricao">Descrição</label>
+          <input type="text" id="descricao" required maxlength="150" placeholder="Ex: Supermercado">
+
+          <label>Tipo</label>
+          <div class="tipo-toggle">
+            <button type="button" data-tipo="Despesa" class="ativo">Despesa</button>
+            <button type="button" data-tipo="Receita">Receita</button>
+          </div>
+          <input type="hidden" id="tipo" value="Despesa">
+
+          <label for="valor">Valor (R$)</label>
+          <input type="number" id="valor" step="0.01" min="0.01" required placeholder="0,00">
+
+          <label for="data">Data</label>
+          <input type="date" id="data" required>
+
+          <label for="categoria">Categoria</label>
+          <input type="text" id="categoria" required maxlength="60" placeholder="Ex: Alimentação" list="lista-categorias">
+          <datalist id="lista-categorias"></datalist>
+
+          <label for="forma">Forma de pagamento</label>
+          <select id="forma">
+            <option value="Dinheiro">Dinheiro</option>
+            <option value="Pix">Pix</option>
+            <option value="CartaoCredito">Cartão de crédito</option>
+            <option value="CartaoDebito">Cartão de débito</option>
+            <option value="TransferenciaBancaria">Transferência bancária</option>
+            <option value="Boleto">Boleto</option>
+          </select>
+
+          <label for="tags">Tags (separadas por vírgula)</label>
+          <input type="text" id="tags" placeholder="Ex: fixo, essencial">
+
+          <p id="erro-form"></p>
+          <button type="submit" class="btn-principal" id="btn-salvar">Adicionar lançamento</button>
+          <button type="button" class="btn-cancelar" id="btn-cancelar">Cancelar edição</button>
+        </form>
+      </div>
+
+      <div class="painel">
+        <h2>Despesas por categoria</h2>
+        <div class="donut-wrap">
+          <div class="donut" id="donut"></div>
+          <ul class="legenda" id="legenda"></ul>
+        </div>
+      </div>
+
+      <div class="config">
+        <span>API:</span>
+        <input type="text" id="api-url" value="https://localhost:7000/api/gastos">
+        <button class="chip" id="btn-reconectar" type="button">Reconectar</button>
+      </div>
+    </div>
+
+    <!-- Coluna direita: extrato -->
+    <div class="painel">
+      <h2>Extrato <span class="num" id="extrato-contagem"></span></h2>
+      <div class="filtros" id="filtros">
+        <button class="chip ativo" data-filtro="todos">Todos</button>
+        <button class="chip" data-filtro="Receita">Receitas</button>
+        <button class="chip" data-filtro="Despesa">Despesas</button>
+      </div>
+      <div class="extrato" id="extrato">
+        <p class="vazio">Carregando lançamentos…</p>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+const rotulosFormaPagamento = {
+  Dinheiro: 'Dinheiro', Pix: 'Pix', CartaoCredito: 'Cartão de crédito',
+  CartaoDebito: 'Cartão de débito', TransferenciaBancaria: 'Transferência', Boleto: 'Boleto'
+};
+const coresDonut = ['#b23a48','#c9a227','#5b6a61','#7a4b2c','#8a5a6b','#3d5a4f','#a8763f'];
+
+let apiUrl = document.getElementById('api-url').value;
+let editandoId = null;
+let filtroAtivo = 'todos';
+
+const $ = (id) => document.getElementById(id);
+const formatarMoeda = (v) => 'R$ ' + Number(v).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const formatarData = (iso) => new Date(iso).toLocaleDateString('pt-BR', { day:'2-digit', month:'short', year:'numeric' });
+
+document.querySelectorAll('.tipo-toggle button').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.tipo-toggle button').forEach(b => b.classList.remove('ativo'));
+    btn.classList.add('ativo');
+    $('tipo').value = btn.dataset.tipo;
+  });
+});
+
+document.querySelectorAll('#filtros .chip').forEach(chip => {
+  chip.addEventListener('click', () => {
+    document.querySelectorAll('#filtros .chip').forEach(c => c.classList.remove('ativo'));
+    chip.classList.add('ativo');
+    filtroAtivo = chip.dataset.filtro;
+    carregarExtrato();
+  });
+});
+
+$('btn-reconectar').addEventListener('click', () => {
+  apiUrl = $('api-url').value.replace(/\/$/, '');
+  carregarTudo();
+});
+
+$('btn-cancelar').addEventListener('click', () => resetarFormulario());
+
+function resetarFormulario(){
+  editandoId = null;
+  $('form-gasto').reset();
+  $('data').value = new Date().toISOString().slice(0,10);
+  document.querySelectorAll('.tipo-toggle button').forEach(b => b.classList.remove('ativo'));
+  document.querySelector('.tipo-toggle button[data-tipo="Despesa"]').classList.add('ativo');
+  $('tipo').value = 'Despesa';
+  $('form-titulo').textContent = 'Novo lançamento';
+  $('btn-salvar').textContent = 'Adicionar lançamento';
+  $('btn-cancelar').style.display = 'none';
+  $('erro-form').style.display = 'none';
+}
+
+async function carregarTudo(){
+  await Promise.all([carregarResumo(), carregarExtrato()]);
+}
+
+async function carregarResumo(){
+  try{
+    const resp = await fetch(`${apiUrl}/resumo`);
+    if(!resp.ok) throw new Error('Falha ao buscar resumo');
+    const r = await resp.json();
+
+    $('total-receitas').textContent = formatarMoeda(r.totalReceitas);
+    $('total-despesas').textContent = formatarMoeda(r.totalDespesas);
+    const saldoEl = $('saldo-valor');
+    saldoEl.textContent = formatarMoeda(r.saldo);
+    saldoEl.className = 'saldo-valor ' + (r.saldo >= 0 ? 'positivo' : 'negativo');
+
+    desenharDonut(r.despesasPorCategoria);
+
+    const categorias = [...new Set([
+      ...r.despesasPorCategoria.map(c => c.categoria),
+      ...r.receitasPorCategoria.map(c => c.categoria)
+    ])];
+    $('lista-categorias').innerHTML = categorias.map(c => `<option value="${c}">`).join('');
+  }catch(e){
+    $('donut').style.background = 'var(--paper-line)';
+    $('legenda').innerHTML = `<li class="vazio">Não foi possível conectar à API em ${apiUrl}. Confira a URL acima.</li>`;
+  }
+}
+
+function desenharDonut(categorias){
+  const donut = $('donut');
+  const legenda = $('legenda');
+  if(!categorias.length){
+    donut.style.background = 'var(--paper-line)';
+    legenda.innerHTML = '<li class="vazio">Sem despesas registradas ainda.</li>';
+    return;
+  }
+  const total = categorias.reduce((s,c) => s + c.total, 0);
+  let acumulado = 0;
+  const partes = categorias.map((c,i) => {
+    const inicio = (acumulado/total)*360;
+    acumulado += c.total;
+    const fim = (acumulado/total)*360;
+    return `${coresDonut[i % coresDonut.length]} ${inicio}deg ${fim}deg`;
+  });
+  donut.style.background = `conic-gradient(${partes.join(',')})`;
+  legenda.innerHTML = categorias.map((c,i) => `
+    <li>
+      <span><span class="pt" style="background:${coresDonut[i % coresDonut.length]}"></span><span class="legenda-cat">${c.categoria}</span></span>
+      <span class="legenda-val">${formatarMoeda(c.total)}</span>
+    </li>`).join('');
+}
+
+async function carregarExtrato(){
+  const extratoEl = $('extrato');
+  try{
+    const qs = filtroAtivo !== 'todos' ? `?tipo=${filtroAtivo}` : '';
+    const resp = await fetch(`${apiUrl}${qs}`);
+    if(!resp.ok) throw new Error('Falha ao buscar gastos');
+    const gastos = await resp.json();
+
+    $('total-lancamentos').textContent = gastos.length;
+    $('extrato-contagem').textContent = gastos.length ? `${gastos.length} registro(s)` : '';
+
+    if(!gastos.length){
+      extratoEl.innerHTML = '<p class="vazio">Nenhum lançamento encontrado. Adicione o primeiro ao lado.</p>';
+      return;
+    }
+
+    extratoEl.innerHTML = gastos.map(g => `
+      <div class="lancamento">
+        <div>
+          <div class="l-desc">${g.descricao}</div>
+          <div class="l-meta">${formatarData(g.data)} · ${g.categoria} · ${rotulosFormaPagamento[g.formaPagamento] || g.formaPagamento}
+            ${(g.tags||[]).map(t => `<span class="l-tag">${t}</span>`).join('')}
+          </div>
+        </div>
+        <div class="l-valor ${g.tipo === 'Receita' ? 'receita' : 'despesa'}">
+          ${g.tipo === 'Receita' ? '+' : '−'} ${formatarMoeda(g.valor)}
+        </div>
+        <div class="l-acoes">
+          <button title="Editar" onclick="editarGasto(${g.id})">✎</button>
+          <button title="Excluir" onclick="excluirGasto(${g.id})">✕</button>
+        </div>
+      </div>
+    `).join('');
+  }catch(e){
+    extratoEl.innerHTML = `<p class="vazio">Não foi possível conectar à API em ${apiUrl}.</p>`;
+  }
+}
+
+window.editarGasto = async function(id){
+  try{
+    const resp = await fetch(`${apiUrl}/${id}`);
+    if(!resp.ok) throw new Error();
+    const g = await resp.json();
+
+    editandoId = id;
+    $('descricao').value = g.descricao;
+    $('valor').value = g.valor;
+    $('data').value = g.data.slice(0,10);
+    $('categoria').value = g.categoria;
+    $('forma').value = g.formaPagamento;
+    $('tags').value = (g.tags||[]).join(', ');
+    document.querySelectorAll('.tipo-toggle button').forEach(b => b.classList.toggle('ativo', b.dataset.tipo === g.tipo));
+    $('tipo').value = g.tipo;
+
+    $('form-titulo').textContent = 'Editar lançamento';
+    $('btn-salvar').textContent = 'Salvar alterações';
+    $('btn-cancelar').style.display = 'block';
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }catch(e){
+    alert('Não foi possível carregar este lançamento.');
+  }
+}
+
+window.excluirGasto = async function(id){
+  if(!confirm('Excluir este lançamento?')) return;
+  try{
+    const resp = await fetch(`${apiUrl}/${id}`, { method: 'DELETE' });
+    if(!resp.ok) throw new Error();
+    carregarTudo();
+  }catch(e){
+    alert('Não foi possível excluir este lançamento.');
+  }
+}
+
+$('form-gasto').addEventListener('submit', async (ev) => {
+  ev.preventDefault();
+  const erroEl = $('erro-form');
+  erroEl.style.display = 'none';
+
+  const payload = {
+    descricao: $('descricao').value.trim(),
+    valor: parseFloat($('valor').value),
+    data: $('data').value,
+    categoria: $('categoria').value.trim(),
+    tipo: $('tipo').value,
+    formaPagamento: $('forma').value,
+    tags: $('tags').value.split(',').map(t => t.trim()).filter(Boolean)
+  };
+
+  try{
+    const url = editandoId ? `${apiUrl}/${editandoId}` : apiUrl;
+    const metodo = editandoId ? 'PUT' : 'POST';
+    const resp = await fetch(url, {
+      method: metodo,
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+    if(!resp.ok){
+      const erro = await resp.json().catch(() => null);
+      throw new Error(erro?.mensagem || 'Não foi possível salvar o lançamento.');
+    }
+    resetarFormulario();
+    carregarTudo();
+  }catch(e){
+    erroEl.textContent = e.message;
+    erroEl.style.display = 'block';
+  }
+});
+
+resetarFormulario();
+carregarTudo();
+</script>
+</body>
+</html>
