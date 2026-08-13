@@ -1,8 +1,6 @@
 # Controle de Gastos — Projeto Completo
-<a href="file:///C:/Users/EdyM2/ControleDeGastos-Completo/frontend/index.html" target="_blank">
-  🌐 ACESSAR O SITE
-</a>
-
+[🚀 Acessar o Sistema de Controle de Gastos](https://nosdemartins.github.io/ControleDeGastos-Completo/)
+  
 Projeto completo: API (.NET 8 + PostgreSQL + segurança contra invasão) e Dashboard web (HTML/CSS/JS puro).
 
 ```
