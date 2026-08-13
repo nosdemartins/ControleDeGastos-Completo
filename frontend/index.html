@@ -1,0 +1,645 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Controle de Gastos — Extrato</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+
+<div class="wrap">
+
+  <header>
+    <div>
+      <p class="brand-eyebrow">Livro-caixa pessoal</p>
+      <h1>Controle de Gastos</h1>
+    </div>
+
+    <div class="saldo-box">
+      <p class="saldo-label">Saldo atual</p>
+      <p class="saldo-valor" id="saldo-valor">R$ 0,00</p>
+    </div>
+  </header>
+
+  <div class="cards">
+    <div class="card receitas">
+      <p class="rotulo">Receitas</p>
+      <p class="valor" id="total-receitas">R$ 0,00</p>
+    </div>
+
+    <div class="card despesas">
+      <p class="rotulo">Despesas</p>
+      <p class="valor" id="total-despesas">R$ 0,00</p>
+    </div>
+
+    <div class="card">
+      <p class="rotulo">Lançamentos</p>
+      <p class="valor" id="total-lancamentos">0</p>
+    </div>
+  </div>
+
+  <div class="grid">
+
+    <div>
+      <div class="painel" style="margin-bottom:20px;">
+
+        <h2 id="form-titulo">Novo lançamento</h2>
+
+        <form id="form-gasto">
+
+          <label for="descricao">Descrição</label>
+          <input type="text" id="descricao" required maxlength="150" placeholder="Ex: Supermercado">
+
+          <label>Tipo</label>
+
+          <div class="tipo-toggle">
+            <button type="button" data-tipo="Despesa" class="ativo">Despesa</button>
+            <button type="button" data-tipo="Receita">Receita</button>
+          </div>
+
+          <input type="hidden" id="tipo" value="Despesa">
+
+          <label for="valor">Valor (R$)</label>
+          <input type="number" id="valor" step="0.01" min="0.01" required placeholder="0,00">
+
+          <label for="data">Data</label>
+          <input type="date" id="data" required>
+
+          <label for="categoria">Categoria</label>
+          <input type="text" id="categoria" required maxlength="60" placeholder="Ex: Alimentação" list="lista-categorias">
+
+          <datalist id="lista-categorias"></datalist>
+
+          <label for="forma">Forma de pagamento</label>
+
+          <select id="forma">
+            <option value="Dinheiro">Dinheiro</option>
+            <option value="Pix">Pix</option>
+            <option value="CartaoCredito">Cartão de crédito</option>
+            <option value="CartaoDebito">Cartão de débito</option>
+            <option value="TransferenciaBancaria">Transferência bancária</option>
+            <option value="Boleto">Boleto</option>
+          </select>
+
+          <label for="tags">Tags (separadas por vírgula)</label>
+          <input type="text" id="tags" placeholder="Ex: fixo, essencial">
+
+          <p id="erro-form"></p>
+
+          <button type="submit" class="btn-principal" id="btn-salvar">
+            Adicionar lançamento
+          </button>
+
+          <button type="button" class="btn-cancelar" id="btn-cancelar">
+            Cancelar edição
+          </button>
+
+        </form>
+      </div>
+
+      <div class="painel">
+
+        <h2>Despesas por categoria</h2>
+
+        <div class="donut-wrap">
+          <div class="donut" id="donut"></div>
+          <ul class="legenda" id="legenda"></ul>
+        </div>
+
+      </div>
+
+      <div class="config">
+        <span>API:</span>
+
+        <input
+          type="text"
+          id="api-url"
+          value="https://localhost:7000/api/gastos"
+        >
+
+        <button class="chip" id="btn-reconectar" type="button">
+          Reconectar
+        </button>
+      </div>
+
+    </div>
+
+    <div class="painel">
+
+      <h2>
+        Extrato
+        <span class="num" id="extrato-contagem"></span>
+      </h2>
+
+      <div class="filtros" id="filtros">
+
+        <button class="chip ativo" data-filtro="todos">
+          Todos
+        </button>
+
+        <button class="chip" data-filtro="Receita">
+          Receitas
+        </button>
+
+        <button class="chip" data-filtro="Despesa">
+          Despesas
+        </button>
+
+      </div>
+
+      <div class="extrato" id="extrato">
+        <p class="vazio">Carregando lançamentos…</p>
+      </div>
+
+    </div>
+
+  </div>
+
+</div>
+
+<script>
+const rotulosFormaPagamento = {
+  Dinheiro: 'Dinheiro',
+  Pix: 'Pix',
+  CartaoCredito: 'Cartão de crédito',
+  CartaoDebito: 'Cartão de débito',
+  TransferenciaBancaria: 'Transferência',
+  Boleto: 'Boleto'
+};
+
+const coresDonut = [
+  '#b23a48',
+  '#c9a227',
+  '#5b6a61',
+  '#7a4b2c',
+  '#8a5a6b',
+  '#3d5a4f',
+  '#a8763f'
+];
+
+let apiUrl = document.getElementById('api-url').value;
+let editandoId = null;
+let filtroAtivo = 'todos';
+
+const $ = (id) => document.getElementById(id);
+
+const formatarMoeda = (v) =>
+  'R$ ' + Number(v).toLocaleString('pt-BR', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2
+  });
+
+const formatarData = (iso) =>
+  new Date(iso).toLocaleDateString('pt-BR', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric'
+  });
+
+document.querySelectorAll('.tipo-toggle button').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.tipo-toggle button')
+      .forEach(b => b.classList.remove('ativo'));
+
+    btn.classList.add('ativo');
+    $('tipo').value = btn.dataset.tipo;
+  });
+});
+
+document.querySelectorAll('#filtros .chip').forEach(chip => {
+  chip.addEventListener('click', () => {
+    document.querySelectorAll('#filtros .chip')
+      .forEach(c => c.classList.remove('ativo'));
+
+    chip.classList.add('ativo');
+    filtroAtivo = chip.dataset.filtro;
+    carregarExtrato();
+  });
+});
+
+$('btn-reconectar').addEventListener('click', () => {
+  apiUrl = $('api-url').value.replace(/\/$/, '');
+  carregarTudo();
+});
+
+$('btn-cancelar').addEventListener(
+  'click',
+  () => resetarFormulario()
+);
+
+function resetarFormulario() {
+  editandoId = null;
+
+  $('form-gasto').reset();
+
+  $('data').value =
+    new Date().toISOString().slice(0, 10);
+
+  document.querySelectorAll('.tipo-toggle button')
+    .forEach(b => b.classList.remove('ativo'));
+
+  document
+    .querySelector('.tipo-toggle button[data-tipo="Despesa"]')
+    .classList.add('ativo');
+
+  $('tipo').value = 'Despesa';
+
+  $('form-titulo').textContent = 'Novo lançamento';
+  $('btn-salvar').textContent = 'Adicionar lançamento';
+  $('btn-cancelar').style.display = 'none';
+  $('erro-form').style.display = 'none';
+}
+
+async function carregarTudo() {
+  await Promise.all([
+    carregarResumo(),
+    carregarExtrato()
+  ]);
+}
+
+async function carregarResumo() {
+  try {
+    const resp = await fetch(`${apiUrl}/resumo`);
+
+    if (!resp.ok)
+      throw new Error('Falha ao buscar resumo');
+
+    const r = await resp.json();
+
+    $('total-receitas').textContent =
+      formatarMoeda(r.totalReceitas);
+
+    $('total-despesas').textContent =
+      formatarMoeda(r.totalDespesas);
+
+    const saldoEl = $('saldo-valor');
+
+    saldoEl.textContent =
+      formatarMoeda(r.saldo);
+
+    saldoEl.className =
+      'saldo-valor ' +
+      (r.saldo >= 0 ? 'positivo' : 'negativo');
+
+    desenharDonut(r.despesasPorCategoria);
+
+    const categorias = [...new Set([
+      ...r.despesasPorCategoria.map(c => c.categoria),
+      ...r.receitasPorCategoria.map(c => c.categoria)
+    ])];
+
+    $('lista-categorias').innerHTML =
+      categorias.map(c => `<option value="${c}">`).join('');
+
+  } catch (e) {
+
+    $('donut').style.background =
+      'var(--paper-line)';
+
+    $('legenda').innerHTML =
+      `<li class="vazio">
+        Não foi possível conectar à API em ${apiUrl}.
+        Confira a URL acima.
+      </li>`;
+  }
+}
+
+function desenharDonut(categorias) {
+  const donut = $('donut');
+  const legenda = $('legenda');
+
+  if (!categorias.length) {
+
+    donut.style.background =
+      'var(--paper-line)';
+
+    legenda.innerHTML =
+      '<li class="vazio">Sem despesas registradas ainda.</li>';
+
+    return;
+  }
+
+  const total =
+    categorias.reduce((s, c) => s + c.total, 0);
+
+  let acumulado = 0;
+
+  const partes = categorias.map((c, i) => {
+
+    const inicio =
+      (acumulado / total) * 360;
+
+    acumulado += c.total;
+
+    const fim =
+      (acumulado / total) * 360;
+
+    return `${coresDonut[i % coresDonut.length]} ${inicio}deg ${fim}deg`;
+  });
+
+  donut.style.background =
+    `conic-gradient(${partes.join(',')})`;
+
+  legenda.innerHTML =
+    categorias.map((c, i) => `
+      <li>
+        <span>
+          <span
+            class="pt"
+            style="background:${coresDonut[i % coresDonut.length]}"
+          ></span>
+
+          <span class="legenda-cat">
+            ${c.categoria}
+          </span>
+        </span>
+
+        <span class="legenda-val">
+          ${formatarMoeda(c.total)}
+        </span>
+      </li>
+    `).join('');
+}
+
+async function carregarExtrato() {
+
+  const extratoEl = $('extrato');
+
+  try {
+
+    const qs =
+      filtroAtivo !== 'todos'
+        ? `?tipo=${filtroAtivo}`
+        : '';
+
+    const resp =
+      await fetch(`${apiUrl}${qs}`);
+
+    if (!resp.ok)
+      throw new Error('Falha ao buscar gastos');
+
+    const gastos =
+      await resp.json();
+
+    $('total-lancamentos').textContent =
+      gastos.length;
+
+    $('extrato-contagem').textContent =
+      gastos.length
+        ? `${gastos.length} registro(s)`
+        : '';
+
+    if (!gastos.length) {
+
+      extratoEl.innerHTML =
+        '<p class="vazio">Nenhum lançamento encontrado. Adicione o primeiro ao lado.</p>';
+
+      return;
+    }
+
+    extratoEl.innerHTML =
+      gastos.map(g => `
+        <div class="lancamento">
+
+          <div>
+
+            <div class="l-desc">
+              ${g.descricao}
+            </div>
+
+            <div class="l-meta">
+
+              ${formatarData(g.data)}
+              · ${g.categoria}
+              · ${rotulosFormaPagamento[g.formaPagamento] || g.formaPagamento}
+
+              ${(g.tags || [])
+                .map(t => `<span class="l-tag">${t}</span>`)
+                .join('')}
+
+            </div>
+
+          </div>
+
+          <div class="l-valor ${
+            g.tipo === 'Receita'
+              ? 'receita'
+              : 'despesa'
+          }">
+
+            ${g.tipo === 'Receita' ? '+' : '−'}
+            ${formatarMoeda(g.valor)}
+
+          </div>
+
+          <div class="l-acoes">
+
+            <button
+              title="Editar"
+              onclick="editarGasto(${g.id})"
+            >
+              ✎
+            </button>
+
+            <button
+              title="Excluir"
+              onclick="excluirGasto(${g.id})"
+            >
+              ✕
+            </button>
+
+          </div>
+
+        </div>
+      `).join('');
+
+  } catch (e) {
+
+    extratoEl.innerHTML =
+      `<p class="vazio">
+        Não foi possível conectar à API em ${apiUrl}.
+      </p>`;
+  }
+}
+
+window.editarGasto = async function(id) {
+
+  try {
+
+    const resp =
+      await fetch(`${apiUrl}/${id}`);
+
+    if (!resp.ok)
+      throw new Error();
+
+    const g =
+      await resp.json();
+
+    editandoId = id;
+
+    $('descricao').value = g.descricao;
+    $('valor').value = g.valor;
+    $('data').value = g.data.slice(0, 10);
+    $('categoria').value = g.categoria;
+    $('forma').value = g.formaPagamento;
+    $('tags').value = (g.tags || []).join(', ');
+
+    document
+      .querySelectorAll('.tipo-toggle button')
+      .forEach(b =>
+        b.classList.toggle(
+          'ativo',
+          b.dataset.tipo === g.tipo
+        )
+      );
+
+    $('tipo').value = g.tipo;
+
+    $('form-titulo').textContent =
+      'Editar lançamento';
+
+    $('btn-salvar').textContent =
+      'Salvar alterações';
+
+    $('btn-cancelar').style.display =
+      'block';
+
+    window.scrollTo({
+      top: 0,
+      behavior: 'smooth'
+    });
+
+  } catch (e) {
+
+    alert(
+      'Não foi possível carregar este lançamento.'
+    );
+  }
+};
+
+window.excluirGasto = async function(id) {
+
+  if (!confirm('Excluir este lançamento?'))
+    return;
+
+  try {
+
+    const resp =
+      await fetch(`${apiUrl}/${id}`, {
+        method: 'DELETE'
+      });
+
+    if (!resp.ok)
+      throw new Error();
+
+    carregarTudo();
+
+  } catch (e) {
+
+    alert(
+      'Não foi possível excluir este lançamento.'
+    );
+  }
+};
+
+$('form-gasto').addEventListener(
+  'submit',
+  async (ev) => {
+
+    ev.preventDefault();
+
+    const erroEl =
+      $('erro-form');
+
+    erroEl.style.display =
+      'none';
+
+    const payload = {
+
+      descricao:
+        $('descricao').value.trim(),
+
+      valor:
+        parseFloat($('valor').value),
+
+      data:
+        $('data').value,
+
+      categoria:
+        $('categoria').value.trim(),
+
+      tipo:
+        $('tipo').value,
+
+      formaPagamento:
+        $('forma').value,
+
+      tags:
+        $('tags')
+          .value
+          .split(',')
+          .map(t => t.trim())
+          .filter(Boolean)
+    };
+
+    try {
+
+      const url =
+        editandoId
+          ? `${apiUrl}/${editandoId}`
+          : apiUrl;
+
+      const metodo =
+        editandoId
+          ? 'PUT'
+          : 'POST';
+
+      const resp =
+        await fetch(url, {
+          method: metodo,
+
+          headers: {
+            'Content-Type':
+              'application/json'
+          },
+
+          body:
+            JSON.stringify(payload)
+        });
+
+      if (!resp.ok) {
+
+        const erro =
+          await resp.json().catch(() => null);
+
+        throw new Error(
+          erro?.mensagem ||
+          'Não foi possível salvar o lançamento.'
+        );
+      }
+
+      resetarFormulario();
+      carregarTudo();
+
+    } catch (e) {
+
+      erroEl.textContent =
+        e.message;
+
+      erroEl.style.display =
+        'block';
+    }
+  }
+);
+
+resetarFormulario();
+carregarTudo();
+</script>
+
+</body>
+</html>

@@ -16,6 +16,11 @@ public class GastosController : ControllerBase
     {
         _contexto = contexto;
     }
+    [HttpGet("google")]
+public IActionResult Google()
+{
+    return Redirect("https://www.google.com");
+}
 
     // GET api/gastos?tipo=Despesa&categoria=Alimentação&dataInicio=2026-01-01&dataFim=2026-12-31
     [HttpGet]
