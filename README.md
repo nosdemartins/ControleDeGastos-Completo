@@ -1,5 +1,6 @@
 # Controle de Gastos — Projeto Completo
 file:///C:/Users/EdyM2/ControleDeGastos-Completo/frontend/index.html
+
 Projeto completo: API (.NET 8 + PostgreSQL + segurança contra invasão) e Dashboard web (HTML/CSS/JS puro).
 
 ```
